@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Taurus Trading Bot Helper",
+  "version": "1.0.0",
+  "description": "Schwab OAuth token renewal for Taurus Trading Bot",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": [
+    "https://api.schwabapi.com/*",
+    "https://127.0.0.1/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
