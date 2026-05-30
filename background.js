@@ -58,10 +58,13 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
       return;
     }
 
-    const token = await resp.json();
-    // schwab-py expects expires_at (Unix timestamp); raw API only returns expires_in (seconds)
-    token.expires_at = Math.floor(Date.now() / 1000) + (token.expires_in || 1800);
-    console.log("Token received, keys:", Object.keys(token));
+    const rawToken = await resp.json();
+    const nowSec = Math.floor(Date.now() / 1000);
+    // schwab-py saves tokens as {"creation_timestamp": N, "token": {..., "expires_at": N}}
+    // client_from_token_file() expects exactly this format
+    rawToken.expires_at = nowSec + (rawToken.expires_in || 1800);
+    const token = { creation_timestamp: nowSec, token: rawToken };
+    console.log("Token received, keys:", Object.keys(rawToken));
     await storeAndNotify({ type: "TOKEN_SUCCESS", tokenJson: JSON.stringify(token, null, 2) });
 
   } catch (err) {
