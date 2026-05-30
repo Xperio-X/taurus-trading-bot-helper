@@ -17,6 +17,14 @@ chrome.storage.local.get(["clientId", "clientSecret"], (data) => {
   if (data.clientSecret) elClientSecret.value = data.clientSecret;
 });
 
+// Check for a result stored while popup was closed
+chrome.storage.session.get(["pendingResult"], (data) => {
+  if (data.pendingResult) {
+    handleResult(data.pendingResult);
+    chrome.storage.session.remove("pendingResult");
+  }
+});
+
 // Show/hide secret
 elToggle.addEventListener("click", () => {
   const isHidden = elClientSecret.type === "password";
@@ -56,18 +64,19 @@ elAuthorize.addEventListener("click", async () => {
   showStatus("Schwab login page opened — complete login, MFA, and Authorize.", "info");
 });
 
-// Listen for token result from background
-chrome.runtime.onMessage.addListener((msg) => {
+// Listen for live message from background (popup was open during auth)
+chrome.runtime.onMessage.addListener((msg) => handleResult(msg));
+
+function handleResult(msg) {
+  elAuthorize.disabled = false;
   if (msg.type === "TOKEN_SUCCESS") {
-    elAuthorize.disabled = false;
     showStatus("Token generated successfully.", "success");
     elTokenSection.style.display = "block";
     elTokenOutput.value = msg.tokenJson;
   } else if (msg.type === "TOKEN_ERROR") {
-    elAuthorize.disabled = false;
     showStatus("Error: " + msg.error, "error");
   }
-});
+}
 
 // Copy button
 elCopy.addEventListener("click", () => {

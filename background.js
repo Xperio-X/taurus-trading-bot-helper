@@ -47,22 +47,19 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
     }
 
     const token = await resp.json();
-    notifyPopup({ type: "TOKEN_SUCCESS", tokenJson: JSON.stringify(token, null, 2) });
+    await storeAndNotify({ type: "TOKEN_SUCCESS", tokenJson: JSON.stringify(token, null, 2) });
 
   } catch (err) {
-    // Likely a CORS error — guide the user
-    if (err.name === "TypeError" && err.message.includes("fetch")) {
-      notifyPopup({
-        type: "TOKEN_ERROR",
-        error: "CORS blocked by Schwab. A Cloudflare Worker proxy is needed — see README.md for setup instructions.",
-      });
-    } else {
-      notifyPopup({ type: "TOKEN_ERROR", error: err.message });
-    }
+    const msg = (err.name === "TypeError")
+      ? "CORS blocked by Schwab. A Cloudflare Worker proxy is needed — see README.md for setup instructions."
+      : err.message;
+    await storeAndNotify({ type: "TOKEN_ERROR", error: msg });
   }
 });
 
-function notifyPopup(msg) {
-  // Send to any open popup — if popup is closed this is a no-op
+async function storeAndNotify(msg) {
+  // Store result so popup can read it even if it was closed during auth
+  await chrome.storage.session.set({ pendingResult: msg });
+  // Also try live message if popup happens to be open
   chrome.runtime.sendMessage(msg).catch(() => {});
 }
