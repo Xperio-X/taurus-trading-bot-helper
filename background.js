@@ -59,6 +59,8 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
     }
 
     const token = await resp.json();
+    // schwab-py expects expires_at (Unix timestamp); raw API only returns expires_in (seconds)
+    token.expires_at = Math.floor(Date.now() / 1000) + (token.expires_in || 1800);
     console.log("Token received, keys:", Object.keys(token));
     await storeAndNotify({ type: "TOKEN_SUCCESS", tokenJson: JSON.stringify(token, null, 2) });
 
