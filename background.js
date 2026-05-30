@@ -9,30 +9,30 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   if (details.frameId !== 0) return; // main frame only
 
   const tabId = details.tabId;
-  const session = await chrome.storage.session.get(["authTabId", "state", "clientId", "clientSecret"]);
+  const session = await chrome.storage.local.get(["authTabId", "authState", "authClientId", "authClientSecret"]);
   console.log("session authTabId:", session.authTabId, "tabId:", tabId);
   if (tabId !== session.authTabId) return;
 
   // Close the auth tab immediately
   chrome.tabs.remove(tabId);
-  await chrome.storage.session.remove("authTabId");
+  await chrome.storage.local.remove("authTabId");
 
   const params = new URL(details.url).searchParams;
   const code  = params.get("code");
   const state = params.get("state");
 
   console.log("code:", code ? code.slice(0, 20) + "..." : "MISSING");
-  console.log("state match:", state === session.state);
+  console.log("state match:", state === session.authState);
 
   // Verify state
-  if (!code || state !== session.state) {
+  if (!code || state !== session.authState) {
     console.log("State/code check failed");
     await storeAndNotify({ type: "TOKEN_ERROR", error: "State mismatch or missing code — possible CSRF. Try again." });
     return;
   }
 
   // Exchange code for token
-  const credentials = btoa(`${session.clientId}:${session.clientSecret}`);
+  const credentials = btoa(`${session.authClientId}:${session.authClientSecret}`);
   console.log("Fetching token...");
 
   try {

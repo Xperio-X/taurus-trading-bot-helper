@@ -110,6 +110,34 @@
       margin-top: 8px;
     }
 
+    #manual-section {
+      display: none;
+      margin-top: 14px;
+      padding: 10px;
+      background: #1a1f2e;
+      border: 1px solid #2d3748;
+      border-radius: 6px;
+    }
+
+    #manual-section p {
+      font-size: 11px;
+      color: #94a3b8;
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+
+    #redirect-url {
+      height: 60px;
+      color: #e2e8f0;
+      font-size: 11px;
+    }
+
+    #btn-submit-url {
+      background: #1d4ed8;
+      color: #e2e8f0;
+      margin-top: 8px;
+    }
+
     .hint {
       margin-top: 10px;
       font-size: 11px;
@@ -133,6 +161,12 @@
   <button id="btn-authorize">Authorize with Schwab</button>
 
   <div id="status"></div>
+
+  <div id="manual-section">
+    <p>On mobile: after Schwab redirects, copy the full URL from the address bar (starts with <code style="color:#7dd3fc">https://127.0.0.1:8182</code>) and paste it below.</p>
+    <textarea id="redirect-url" placeholder="https://127.0.0.1:8182?code=...&state=..."></textarea>
+    <button id="btn-submit-url">Get Token from URL</button>
+  </div>
 
   <div id="token-section">
     <label>Token JSON — copy into SCHWAB_TOKEN_JSON in all 6 cloud routines</label>

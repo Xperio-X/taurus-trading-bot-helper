@@ -10,6 +10,9 @@ const elStatus       = document.getElementById("status");
 const elTokenSection = document.getElementById("token-section");
 const elTokenOutput  = document.getElementById("token-output");
 const elCopy         = document.getElementById("btn-copy");
+const elManual       = document.getElementById("manual-section");
+const elRedirectUrl  = document.getElementById("redirect-url");
+const elSubmitUrl    = document.getElementById("btn-submit-url");
 
 // Load saved credentials
 chrome.storage.local.get(["clientId", "clientSecret"], (data) => {
@@ -50,7 +53,8 @@ elAuthorize.addEventListener("click", async () => {
   const state = Array.from(crypto.getRandomValues(new Uint8Array(8)))
     .map(b => b.toString(16).padStart(2, "0")).join("");
 
-  await chrome.storage.session.set({ state, clientId, clientSecret });
+  // Use local (not session) storage — session storage is unreliable in mobile browsers
+  await chrome.storage.local.set({ authState: state, authClientId: clientId, authClientSecret: clientSecret });
 
   const url = `${AUTH_URL}?client_id=${encodeURIComponent(clientId)}`
     + `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`
@@ -59,11 +63,66 @@ elAuthorize.addEventListener("click", async () => {
 
   // Open auth tab and store its ID
   const tab = await chrome.tabs.create({ url });
-  await chrome.storage.session.set({ authTabId: tab.id });
+  await chrome.storage.local.set({ authTabId: tab.id });
 
   elAuthorize.disabled = true;
-  showStatus("Schwab login page opened — complete login, MFA, and Authorize.", "info");
+  elManual.style.display = "block";
+  showStatus("Schwab login page opened — complete login, MFA, and Authorize. On mobile, paste the redirect URL below.", "info");
 });
+
+// Manual URL paste handler (mobile fallback)
+elSubmitUrl.addEventListener("click", async () => {
+  const rawUrl = elRedirectUrl.value.trim();
+  if (!rawUrl) { showStatus("Paste the redirect URL first.", "error"); return; }
+
+  let params;
+  try { params = new URL(rawUrl).searchParams; }
+  catch { showStatus("Invalid URL — paste the full address bar URL.", "error"); return; }
+
+  const code  = params.get("code");
+  const state = params.get("state");
+  if (!code) { showStatus("No code found in URL.", "error"); return; }
+
+  const stored = await chrome.storage.local.get(["authState", "authClientId", "authClientSecret"]);
+  if (state !== stored.authState) {
+    showStatus("State mismatch — tap Authorize again to start a fresh flow.", "error");
+    return;
+  }
+
+  elSubmitUrl.disabled = true;
+  showStatus("Exchanging code for token…", "info");
+  await exchangeCode(code, stored.authClientId, stored.authClientSecret);
+  elSubmitUrl.disabled = false;
+});
+
+async function exchangeCode(code, clientId, clientSecret) {
+  const credentials = btoa(`${clientId}:${clientSecret}`);
+  try {
+    const resp = await fetch(TOKEN_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": `Basic ${credentials}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: REDIRECT_URI }),
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      handleResult({ type: "TOKEN_ERROR", error: `HTTP ${resp.status}: ${text.slice(0, 120)}` });
+      return;
+    }
+    const rawToken = await resp.json();
+    const nowSec = Math.floor(Date.now() / 1000);
+    rawToken.expires_at = nowSec + (rawToken.expires_in || 1800);
+    const token = { creation_timestamp: nowSec, token: rawToken };
+    handleResult({ type: "TOKEN_SUCCESS", tokenJson: JSON.stringify(token, null, 2) });
+  } catch (err) {
+    const msg = (err.name === "TypeError")
+      ? "CORS blocked. See README.md for Cloudflare Worker proxy setup."
+      : err.message;
+    handleResult({ type: "TOKEN_ERROR", error: msg });
+  }
+}
 
 // Listen for live message from background (popup was open during auth)
 chrome.runtime.onMessage.addListener((msg) => handleResult(msg));
