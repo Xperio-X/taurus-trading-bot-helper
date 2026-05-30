@@ -1,19 +1,23 @@
 const REDIRECT_URI = "https://127.0.0.1:8182";
 const TOKEN_URL = "https://api.schwabapi.com/v1/oauth/token";
 
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
-  if (!changeInfo.url) return;
-  if (!changeInfo.url.startsWith(REDIRECT_URI)) return;
+// webNavigation fires before the page loads — catches ERR_CONNECTION_REFUSED redirects
+// that tabs.onUpdated misses when nothing is running on 127.0.0.1:8182
+chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
+  console.log("onBeforeNavigate:", details.url);
+  if (!details.url.startsWith(REDIRECT_URI)) return;
+  if (details.frameId !== 0) return; // main frame only
 
-  // Check this is our auth tab
+  const tabId = details.tabId;
   const session = await chrome.storage.session.get(["authTabId", "state", "clientId", "clientSecret"]);
+  console.log("session authTabId:", session.authTabId, "tabId:", tabId);
   if (tabId !== session.authTabId) return;
 
   // Close the auth tab immediately
   chrome.tabs.remove(tabId);
   await chrome.storage.session.remove("authTabId");
 
-  const params = new URL(changeInfo.url).searchParams;
+  const params = new URL(details.url).searchParams;
   const code  = params.get("code");
   const state = params.get("state");
 
