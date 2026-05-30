@@ -21,14 +21,19 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   const code  = params.get("code");
   const state = params.get("state");
 
+  console.log("code:", code ? code.slice(0, 20) + "..." : "MISSING");
+  console.log("state match:", state === session.state);
+
   // Verify state
   if (!code || state !== session.state) {
-    notifyPopup({ type: "TOKEN_ERROR", error: "State mismatch or missing code — possible CSRF. Try again." });
+    console.log("State/code check failed");
+    await storeAndNotify({ type: "TOKEN_ERROR", error: "State mismatch or missing code — possible CSRF. Try again." });
     return;
   }
 
   // Exchange code for token
   const credentials = btoa(`${session.clientId}:${session.clientSecret}`);
+  console.log("Fetching token...");
 
   try {
     const resp = await fetch(TOKEN_URL, {
@@ -44,16 +49,21 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
       }),
     });
 
+    console.log("Fetch response status:", resp.status);
+
     if (!resp.ok) {
       const text = await resp.text();
-      notifyPopup({ type: "TOKEN_ERROR", error: `HTTP ${resp.status}: ${text.slice(0, 120)}` });
+      console.log("Fetch error body:", text.slice(0, 200));
+      await storeAndNotify({ type: "TOKEN_ERROR", error: `HTTP ${resp.status}: ${text.slice(0, 120)}` });
       return;
     }
 
     const token = await resp.json();
+    console.log("Token received, keys:", Object.keys(token));
     await storeAndNotify({ type: "TOKEN_SUCCESS", tokenJson: JSON.stringify(token, null, 2) });
 
   } catch (err) {
+    console.log("Fetch threw:", err.name, err.message);
     const msg = (err.name === "TypeError")
       ? "CORS blocked by Schwab. A Cloudflare Worker proxy is needed — see README.md for setup instructions."
       : err.message;
