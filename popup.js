@@ -18,10 +18,11 @@ chrome.storage.local.get(["clientId", "clientSecret"], (data) => {
 });
 
 // Check for a result stored while popup was closed
-chrome.storage.session.get(["pendingResult"], (data) => {
+chrome.storage.local.get(["pendingResult"], (data) => {
+  console.log("pendingResult on open:", data.pendingResult);
   if (data.pendingResult) {
     handleResult(data.pendingResult);
-    chrome.storage.session.remove("pendingResult");
+    chrome.storage.local.remove("pendingResult");
   }
 });
 

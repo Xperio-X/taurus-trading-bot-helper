@@ -72,8 +72,9 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
 });
 
 async function storeAndNotify(msg) {
-  // Store result so popup can read it even if it was closed during auth
-  await chrome.storage.session.set({ pendingResult: msg });
+  // Store in local (not session) — session storage is not reliably accessible from popup
+  await chrome.storage.local.set({ pendingResult: msg });
+  console.log("pendingResult stored:", msg.type);
   // Also try live message if popup happens to be open
   chrome.runtime.sendMessage(msg).catch(() => {});
 }
