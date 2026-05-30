@@ -21,11 +21,16 @@ chrome.storage.local.get(["clientId", "clientSecret"], (data) => {
 });
 
 // Check for a result stored while popup was closed
-chrome.storage.local.get(["pendingResult"], (data) => {
+chrome.storage.local.get(["pendingResult", "authState"], (data) => {
   console.log("pendingResult on open:", data.pendingResult);
   if (data.pendingResult) {
     handleResult(data.pendingResult);
     chrome.storage.local.remove("pendingResult");
+  } else if (data.authState) {
+    // Auth is in progress — show manual paste section so user can paste redirect URL
+    elManual.style.display = "block";
+    elAuthorize.disabled = true;
+    showStatus("Auth in progress — paste the redirect URL below after Schwab redirects you.", "info");
   }
 });
 
@@ -130,6 +135,8 @@ chrome.runtime.onMessage.addListener((msg) => handleResult(msg));
 function handleResult(msg) {
   elAuthorize.disabled = false;
   if (msg.type === "TOKEN_SUCCESS") {
+    chrome.storage.local.remove(["authState", "authClientId", "authClientSecret", "authTabId"]);
+    elManual.style.display = "none";
     showStatus("Token generated successfully.", "success");
     elTokenSection.style.display = "block";
     elTokenOutput.value = msg.tokenJson;
